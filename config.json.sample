@@ -1,0 +1,10 @@
+{
+	"addr": "127.0.0.1:10092",
+	"rpc": "127.0.0.1:5555",
+	"apps": {
+		"today-lingrbot": {
+			"proc": "today_bot",
+			"path": "/home/mattn/dev/today_bot/"
+		}
+	}
+}
