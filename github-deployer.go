@@ -3,9 +3,11 @@ package main
 import (
     "fmt"
     "encoding/json"
+    "errors"
     "flag"
     "log"
     "net/http"
+    "net/rpc"
     "os"
     "os/exec"
 )
@@ -15,9 +17,11 @@ type config struct {
 	Root string `json:"root"`
 	RPC string `json:"rpc"`
 	Apps map[string]struct {
-		Name string `json:"name"`
+		Proc string `json:"proc"`
 		Path string `json:"path"`
-		PullCommand string `json:"pull_command"`
+		UpdateCommand string `json:"update_command"`
+		BuildCommand string `json:"build_command"`
+		ReleaseCommand string `json:"build_command"`
 	} `json:"apps"`
 }
 
@@ -31,6 +35,34 @@ type payload struct {
 }
 
 var configFile = flag.String("c", "config.json", "config file")
+
+func rpcCommand(server, cmd, proc string) error {
+	client, err := rpc.Dial("tcp", server)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	var ret string
+	switch cmd {
+	case "start":
+		return client.Call("Goreman.Start", proc, &ret)
+	case "stop":
+		return client.Call("Goreman.Stop", proc, &ret)
+	case "restart":
+		return client.Call("Goreman.Restart", proc, &ret)
+	}
+	return errors.New("Unknown command")
+}
+
+func runCommand(name, dir, command string) error {
+	if command != "" {
+		cs := []string{"/bin/bash", "-c", command}
+		cmd := exec.Command(cs[0], cs[1:]...)
+		cmd.Dir = dir
+		return cmd.Run()
+	}
+	return nil
+}
 
 func main() {
 	flag.Parse()
@@ -53,17 +85,46 @@ func main() {
     http.HandleFunc(c.Root, func (w http.ResponseWriter, r *http.Request) {
 		var p payload
 		if json.Unmarshal([]byte(r.FormValue("payload")), &p) == nil {
-			app, ok := c.Apps[p.Repository.Name]
+			name := p.Repository.Name
+			app, ok := c.Apps[name]
 			if ok {
-				cs := []string{"/bin/bash", "-c", app.PullCommand}
-				cmd := exec.Command(cs[0], cs[1:]...)
-				err = cmd.Run()
-				if err != nil {
-					log.Println(err)
+				updateCommand := app.UpdateCommand
+				if updateCommand == "" {
+					updateCommand = "git pull origin master"
+				}
+				commands := []string {
+					updateCommand,
+					app.BuildCommand,
+					app.ReleaseCommand,
+				}
+
+				if c.RPC != "" && app.Proc != "" {
+					err = rpcCommand(c.RPC, "stop", app.Proc)
+					if err != nil {
+						log.Printf("%s: %s\n", name, err.Error())
+						return
+					}
+				}
+				for _, command := range commands {
+					if command != "" {
+						log.Printf("%s: %s\n", name, command)
+						err = runCommand(name, app.Path, command)
+						if err != nil {
+							log.Printf("%s: %s\n", name, err.Error())
+							http.Error(w, "Failed to update", http.StatusBadRequest)
+							break
+						}
+					}
+				}
+				if c.RPC != "" && app.Proc != "" {
+					err = rpcCommand(c.RPC, "start", app.Proc)
+					if err != nil {
+						log.Printf("%s: %s\n", name, err.Error())
+					}
 				}
 			}
 		}
-		fmt.Fprintf(w, "")
+		fmt.Fprintf(w, "OK")
 	})
     http.ListenAndServe(c.Addr, nil)
 }
