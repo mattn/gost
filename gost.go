@@ -10,6 +10,7 @@ import (
     "net/rpc"
     "os"
     "os/exec"
+    "runtime"
 )
 
 type config struct {
@@ -57,6 +58,9 @@ func rpcCommand(server, cmd, proc string) error {
 func runCommand(name, dir, command string) error {
 	if command != "" {
 		cs := []string{"/bin/bash", "-c", command}
+		if runtime.GOOS == "windows" {
+			cs = []string{"cmd", "/c", command}
+		}
 		cmd := exec.Command(cs[0], cs[1:]...)
 		cmd.Dir = dir
 		return cmd.Run()
