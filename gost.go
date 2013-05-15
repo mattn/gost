@@ -88,6 +88,7 @@ func main() {
 
     http.HandleFunc(c.Root, func (w http.ResponseWriter, r *http.Request) {
 		var p payload
+		var succeeded = false
 		if json.Unmarshal([]byte(r.FormValue("payload")), &p) == nil {
 			name := p.Repository.Name
 			app, ok := c.Apps[name]
@@ -117,6 +118,8 @@ func main() {
 							log.Printf("%s: %s\n", name, err.Error())
 							http.Error(w, "Failed to update", http.StatusBadRequest)
 							break
+						} else {
+							succeeded = true
 						}
 					}
 				}
@@ -128,7 +131,9 @@ func main() {
 				}
 			}
 		}
-		fmt.Fprintf(w, "OK")
+		if succeeded {
+			fmt.Fprintf(w, "OK")
+		}
 	})
     http.ListenAndServe(c.Addr, nil)
 }
