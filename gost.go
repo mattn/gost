@@ -1,28 +1,29 @@
 package main
 
 import (
-    "fmt"
-    "encoding/json"
-    "errors"
-    "flag"
-    "log"
-    "net/http"
-    "net/rpc"
-    "os"
-    "os/exec"
-    "runtime"
+	"encoding/json"
+	"errors"
+	"flag"
+	"fmt"
+	"log"
+	"net/http"
+	"net/rpc"
+	"os"
+	"os/exec"
+	"runtime"
 )
 
 type config struct {
 	Addr string `json:"addr"`
 	Root string `json:"root"`
-	RPC string `json:"rpc"`
+	RPC  string `json:"rpc"`
 	Apps map[string]struct {
-		Proc string `json:"proc"`
-		Path string `json:"path"`
-		UpdateCommand string `json:"update_command"`
-		BuildCommand string `json:"build_command"`
-		ReleaseCommand string `json:"build_command"`
+		Proc           string `json:"proc"`
+		Path           string `json:"path"`
+		UpdateCommand  string `json:"update_command"`
+		BuildCommand   string `json:"build_command"`
+		TestCommand    string `json:"test_command"`
+		ReleaseCommand string `json:"release_command"`
 	} `json:"apps"`
 }
 
@@ -86,7 +87,7 @@ func main() {
 		c.Root = "/" + c.Root
 	}
 
-    http.HandleFunc(c.Root, func (w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(c.Root, func(w http.ResponseWriter, r *http.Request) {
 		var p payload
 		var succeeded = false
 		if json.Unmarshal([]byte(r.FormValue("payload")), &p) == nil {
@@ -97,10 +98,14 @@ func main() {
 				if updateCommand == "" {
 					updateCommand = "git pull origin master"
 				}
-				commands := []string {
-					updateCommand,
-					app.BuildCommand,
-					app.ReleaseCommand,
+				commands := []struct {
+					task    string
+					command string
+				}{
+					{"update", updateCommand},
+					{"build", app.BuildCommand},
+					{"test", app.TestCommand},
+					{"release", app.ReleaseCommand},
 				}
 
 				if c.RPC != "" && app.Proc != "" {
@@ -111,12 +116,12 @@ func main() {
 					}
 				}
 				for _, command := range commands {
-					if command != "" {
-						log.Printf("%s: %s\n", name, command)
-						err = runCommand(name, app.Path, command)
+					if command.command != "" {
+						log.Printf("%s: %s\n", name, command.command)
+						err = runCommand(name, app.Path, command.command)
 						if err != nil {
-							log.Printf("%s: %s\n", name, err.Error())
-							http.Error(w, "Failed to update", http.StatusBadRequest)
+							log.Printf("%s: %s (%s)\n", name, command.task, err.Error())
+							http.Error(w, fmt.Sprintf("Failed to %s", command.task), http.StatusBadRequest)
 							break
 						} else {
 							succeeded = true
@@ -135,5 +140,5 @@ func main() {
 			fmt.Fprintf(w, "OK")
 		}
 	})
-    http.ListenAndServe(c.Addr, nil)
+	http.ListenAndServe(c.Addr, nil)
 }
