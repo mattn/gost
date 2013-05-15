@@ -140,5 +140,8 @@ func main() {
 			fmt.Fprintf(w, "OK")
 		}
 	})
-	http.ListenAndServe(c.Addr, nil)
+	err = http.ListenAndServe(c.Addr, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
