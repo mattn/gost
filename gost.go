@@ -10,21 +10,25 @@ import (
 	"net/rpc"
 	"os"
 	"os/exec"
+	"os/signal"
 	"runtime"
+	"syscall"
 )
 
+type App struct {
+	Proc           string `json:"proc"`
+	Path           string `json:"path"`
+	UpdateCommand  string `json:"update_command"`
+	BuildCommand   string `json:"build_command"`
+	TestCommand    string `json:"test_command"`
+	ReleaseCommand string `json:"release_command"`
+}
+
 type config struct {
-	Addr string `json:"addr"`
-	Root string `json:"root"`
-	RPC  string `json:"rpc"`
-	Apps map[string]struct {
-		Proc           string `json:"proc"`
-		Path           string `json:"path"`
-		UpdateCommand  string `json:"update_command"`
-		BuildCommand   string `json:"build_command"`
-		TestCommand    string `json:"test_command"`
-		ReleaseCommand string `json:"release_command"`
-	} `json:"apps"`
+	Addr string         `json:"addr"`
+	Root string         `json:"root"`
+	RPC  string         `json:"rpc"`
+	Apps map[string]App `json:"apps"`
 }
 
 type payload struct {
@@ -69,16 +73,29 @@ func runCommand(name, dir, command string) error {
 	return nil
 }
 
-func main() {
-	flag.Parse()
-
+func loadConfig() (*config, error) {
 	f, err := os.Open(*configFile)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	var c config
 	err = json.NewDecoder(f).Decode(&c)
+	if err != nil {
+		return nil, err
+	}
+	f.Close()
+
+	if c.Root == "" || c.Root[0] != '/' {
+		c.Root = "/" + c.Root
+	}
+	return &c, nil
+}
+
+func main() {
+	flag.Parse()
+
+	c, err := loadConfig()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -86,6 +103,20 @@ func main() {
 	if c.Root == "" || c.Root[0] != '/' {
 		c.Root = "/" + c.Root
 	}
+
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, syscall.SIGHUP)
+	go func() {
+		for _ = range sc {
+			log.Println("reloading configuration")
+			ct, err := loadConfig()
+			if err != nil {
+				log.Println(err)
+			} else {
+				c = ct
+			}
+		}
+	}()
 
 	http.HandleFunc(c.Root, func(w http.ResponseWriter, r *http.Request) {
 		var p payload
