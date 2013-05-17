@@ -143,7 +143,7 @@ func main() {
 					err = rpcCommand(c.RPC, "stop", app.Proc)
 					if err != nil {
 						log.Printf("%s: %s\n", name, err.Error())
-						return
+						//return
 					}
 				}
 				for _, command := range commands {
