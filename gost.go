@@ -29,6 +29,7 @@ type config struct {
 	Root string         `json:"root"`
 	RPC  string         `json:"rpc"`
 	Apps map[string]App `json:"apps"`
+	Log  string         `json:"log"`
 }
 
 type payload struct {
@@ -99,6 +100,15 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if c.Log != "" {
+		logFile, err := os.OpenFile(c.Log, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.SetOutput(logFile)
+	}
+	log.Println("start gost")
 
 	if c.Root == "" || c.Root[0] != '/' {
 		c.Root = "/" + c.Root
