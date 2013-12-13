@@ -184,7 +184,7 @@ func main() {
 					}
 				}
 			} else {
-				log.Printf("Invalid app name")
+				log.Printf("invalid app name")
 			}
 		}
 		if succeeded {
