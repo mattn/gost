@@ -133,10 +133,14 @@ func main() {
 		var succeeded = false
 		value := r.FormValue("payload")
 		log.Println(value)
-		if json.Unmarshal([]byte(value), &p) == nil {
+		err := json.Unmarshal([]byte(value), &p)
+		if err != nil {
+			log.Println(err)
+		} else {
 			name := p.Repository.Name
 			app, ok := c.Apps[name]
 			if ok {
+				log.Printf("found app: ", name)
 				updateCommand := app.UpdateCommand
 				if updateCommand == "" {
 					updateCommand = "git pull origin master"
@@ -152,6 +156,7 @@ func main() {
 				}
 
 				if c.RPC != "" && app.Proc != "" {
+					log.Printf("stopping app: ", name)
 					err = rpcCommand(c.RPC, "stop", app.Proc)
 					if err != nil {
 						log.Printf("%s: %s\n", name, err.Error())
@@ -172,6 +177,7 @@ func main() {
 					}
 				}
 				if c.RPC != "" && app.Proc != "" {
+					log.Printf("starting app: ", name)
 					err = rpcCommand(c.RPC, "start", app.Proc)
 					if err != nil {
 						log.Printf("%s: %s\n", name, err.Error())
@@ -183,6 +189,8 @@ func main() {
 		}
 		if succeeded {
 			fmt.Fprintf(w, "OK")
+		} else {
+			fmt.Fprintf(w, "NG")
 		}
 	})
 	err = http.ListenAndServe(c.Addr, nil)
