@@ -18,6 +18,7 @@ import (
 type App struct {
 	Proc           string `json:"proc"`
 	Path           string `json:"path"`
+	FetchCommand   string `json:"fetch_command"`
 	UpdateCommand  string `json:"update_command"`
 	BuildCommand   string `json:"build_command"`
 	TestCommand    string `json:"test_command"`
@@ -141,14 +142,19 @@ func main() {
 			app, ok := c.Apps[name]
 			if ok {
 				log.Println("found app: ", name)
+				fetchCommand := app.FetchCommand
+				if fetchCommand == "" {
+					fetchCommand = "git fetch"
+				}
 				updateCommand := app.UpdateCommand
 				if updateCommand == "" {
-					updateCommand = "git pull origin master"
+					updateCommand = "git reset --hard"
 				}
 				commands := []struct {
 					task    string
 					command string
 				}{
+					{"fetch", fetchCommand},
 					{"update", updateCommand},
 					{"build", app.BuildCommand},
 					{"test", app.TestCommand},
