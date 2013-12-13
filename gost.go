@@ -140,7 +140,7 @@ func main() {
 			name := p.Repository.Name
 			app, ok := c.Apps[name]
 			if ok {
-				log.Printf("found app: ", name)
+				log.Println("found app: ", name)
 				updateCommand := app.UpdateCommand
 				if updateCommand == "" {
 					updateCommand = "git pull origin master"
@@ -156,7 +156,7 @@ func main() {
 				}
 
 				if c.RPC != "" && app.Proc != "" {
-					log.Printf("stopping app: ", name)
+					log.Println("stopping app: ", name)
 					err = rpcCommand(c.RPC, "stop", app.Proc)
 					if err != nil {
 						log.Printf("%s: %s\n", name, err.Error())
@@ -177,20 +177,20 @@ func main() {
 					}
 				}
 				if c.RPC != "" && app.Proc != "" {
-					log.Printf("starting app: ", name)
+					log.Println("starting app: ", name)
 					err = rpcCommand(c.RPC, "start", app.Proc)
 					if err != nil {
 						log.Printf("%s: %s\n", name, err.Error())
 					}
 				}
 			} else {
-				log.Printf("invalid app name")
+				log.Println("invalid app name")
 			}
 		}
 		if succeeded {
-			fmt.Fprintf(w, "OK")
+			fmt.Fprintln(w, "OK")
 		} else {
-			fmt.Fprintf(w, "NG")
+			fmt.Fprintln(w, "NG")
 		}
 	})
 	err = http.ListenAndServe(c.Addr, nil)
