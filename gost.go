@@ -131,7 +131,9 @@ func main() {
 	http.HandleFunc(c.Root, func(w http.ResponseWriter, r *http.Request) {
 		var p payload
 		var succeeded = false
-		if json.Unmarshal([]byte(r.FormValue("payload")), &p) == nil {
+		value := r.FormValue("payload")
+		log.Println(value)
+		if json.Unmarshal([]byte(value), &p) == nil {
 			name := p.Repository.Name
 			app, ok := c.Apps[name]
 			if ok {
