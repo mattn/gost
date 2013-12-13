@@ -175,6 +175,8 @@ func main() {
 						log.Printf("%s: %s\n", name, err.Error())
 					}
 				}
+			} else {
+				log.Printf("Invalid app name")
 			}
 		}
 		if succeeded {
