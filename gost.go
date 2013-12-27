@@ -17,6 +17,7 @@ import (
 
 type App struct {
 	Proc           string `json:"proc"`
+	Branch         string `json:"branch"`
 	Path           string `json:"path"`
 	FetchCommand   string `json:"fetch_command"`
 	UpdateCommand  string `json:"update_command"`
@@ -34,6 +35,7 @@ type config struct {
 }
 
 type payload struct {
+	Ref    string `json:"ref"`
 	Pusher struct {
 		Name string `json:"name"`
 	} `json:"pusher"`
@@ -142,52 +144,56 @@ func main() {
 			app, ok := c.Apps[name]
 			if ok {
 				log.Println("found app: ", name)
-				fetchCommand := app.FetchCommand
-				if fetchCommand == "" {
-					fetchCommand = "git fetch"
-				}
-				updateCommand := app.UpdateCommand
-				if updateCommand == "" {
-					updateCommand = "git reset --hard"
-				}
-				commands := []struct {
-					task    string
-					command string
-				}{
-					{"fetch", fetchCommand},
-					{"update", updateCommand},
-					{"build", app.BuildCommand},
-					{"test", app.TestCommand},
-					{"release", app.ReleaseCommand},
-				}
-
-				if c.RPC != "" && app.Proc != "" {
-					log.Println("stopping app: ", name)
-					err = rpcCommand(c.RPC, "stop", app.Proc)
-					if err != nil {
-						log.Printf("%s: %s\n", name, err.Error())
-						//return
+				if app.Branch == "" || app.Branch == p.Ref {
+					fetchCommand := app.FetchCommand
+					if fetchCommand == "" {
+						fetchCommand = "git fetch"
 					}
-				}
-				for _, command := range commands {
-					if command.command != "" {
-						log.Printf("%s: %s\n", name, command.command)
-						err = runCommand(name, app.Path, command.command)
+					updateCommand := app.UpdateCommand
+					if updateCommand == "" {
+						updateCommand = "git reset --hard"
+					}
+					commands := []struct {
+						task    string
+						command string
+					}{
+						{"fetch", fetchCommand},
+						{"update", updateCommand},
+						{"build", app.BuildCommand},
+						{"test", app.TestCommand},
+						{"release", app.ReleaseCommand},
+					}
+
+					if c.RPC != "" && app.Proc != "" {
+						log.Println("stopping app: ", name)
+						err = rpcCommand(c.RPC, "stop", app.Proc)
 						if err != nil {
-							log.Printf("%s: %s (%s)\n", name, command.task, err.Error())
-							http.Error(w, fmt.Sprintf("Failed to %s", command.task), http.StatusBadRequest)
-							break
-						} else {
-							succeeded = true
+							log.Printf("%s: %s\n", name, err.Error())
+							//return
 						}
 					}
-				}
-				if c.RPC != "" && app.Proc != "" {
-					log.Println("starting app: ", name)
-					err = rpcCommand(c.RPC, "start", app.Proc)
-					if err != nil {
-						log.Printf("%s: %s\n", name, err.Error())
+					for _, command := range commands {
+						if command.command != "" {
+							log.Printf("%s: %s\n", name, command.command)
+							err = runCommand(name, app.Path, command.command)
+							if err != nil {
+								log.Printf("%s: %s (%s)\n", name, command.task, err.Error())
+								http.Error(w, fmt.Sprintf("Failed to %s", command.task), http.StatusBadRequest)
+								break
+							} else {
+								succeeded = true
+							}
+						}
 					}
+					if c.RPC != "" && app.Proc != "" {
+						log.Println("starting app: ", name)
+						err = rpcCommand(c.RPC, "start", app.Proc)
+						if err != nil {
+							log.Printf("%s: %s\n", name, err.Error())
+						}
+					}
+				} else {
+					log.Println("nop")
 				}
 			} else {
 				log.Println("invalid app name")
